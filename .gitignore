@@ -1,0 +1,47 @@
+# Binários Go
+*.exe
+*.exe~
+bin/
+dist/
+
+# Artefatos de build
+*/vendor/
+*/go.sum
+
+# Testes
+*.test
+*.out
+coverage.html
+coverage.txt
+
+# Variáveis de ambiente (nunca commitar segredos)
+.env
+.env.*
+!.env.example
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Kubernetes — nunca commitar Secrets reais
+infra/k8s/**/secret-*.yaml
+infra/k8s/**/*-secret.yaml
+
+# Terraform state (contém dados sensíveis)
+infra/terraform/*.tfstate
+infra/terraform/*.tfstate.backup
+infra/terraform/.terraform/
+infra/terraform/.terraform.lock.hcl
+
+# Logs
+*.log
+logs/
+
+# Dados locais do Redpanda
+redpanda-data/
