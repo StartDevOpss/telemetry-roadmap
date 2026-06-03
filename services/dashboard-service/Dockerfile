@@ -1,4 +1,4 @@
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 WORKDIR /workspace
 COPY pkg/events ./pkg/events
 COPY services/dashboard-service/go.mod ./services/dashboard-service/
