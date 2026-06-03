@@ -1,0 +1,140 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}
+
+jobs:
+  # ─────────────────────────────────────────────
+  # Job 1: build + lint para cada serviço
+  # ─────────────────────────────────────────────
+  build:
+    name: Build & Lint (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - ingestion-service
+          - device-service
+          - alert-service
+          - dashboard-service
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.23"
+          cache-dependency-path: services/${{ matrix.service }}/go.mod
+
+      - name: go mod tidy (verifica dependências)
+        working-directory: services/${{ matrix.service }}
+        env:
+          GOFLAGS: -mod=mod
+        run: go mod tidy
+
+      - name: go vet (lint estático)
+        working-directory: services/${{ matrix.service }}
+        env:
+          GOFLAGS: -mod=mod
+        run: go vet ./...
+
+      - name: go build (verifica compilação)
+        working-directory: services/${{ matrix.service }}
+        env:
+          CGO_ENABLED: "0"
+          GOFLAGS: -mod=mod
+        run: go build ./...
+
+  # ─────────────────────────────────────────────
+  # Job 2: scan de vulnerabilidades com Trivy
+  # ─────────────────────────────────────────────
+  trivy-scan:
+    name: Trivy Scan (${{ matrix.service }})
+    runs-on: ubuntu-latest
+    needs: build
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - ingestion-service
+          - device-service
+          - alert-service
+          - dashboard-service
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build imagem Docker
+        run: |
+          docker build \
+            -f services/${{ matrix.service }}/Dockerfile \
+            -t scan-target:${{ matrix.service }} \
+            .
+
+      - name: Trivy — scan de vulnerabilidades CRÍTICAS e ALTAS
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: scan-target:${{ matrix.service }}
+          format: table
+          exit-code: "1"
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+  # ─────────────────────────────────────────────
+  # Job 3: push para ghcr.io (somente na main)
+  # ─────────────────────────────────────────────
+  push:
+    name: Push ${{ matrix.service }} → ghcr.io
+    runs-on: ubuntu-latest
+    needs: [build, trivy-scan]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service:
+          - ingestion-service
+          - device-service
+          - alert-service
+          - dashboard-service
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login no GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Metadados da imagem (tags e labels)
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}
+          tags: |
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest
+
+      - name: Build e push da imagem
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: services/${{ matrix.service }}/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

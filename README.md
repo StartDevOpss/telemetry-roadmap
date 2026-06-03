@@ -90,7 +90,7 @@ graph TD
 | **0 — Fundação** | Monorepo, diagrama de arquitetura, contratos de eventos | ✅ Concluída |
 | **1 — Serviços + Event-driven** | 4 serviços rodando e se comunicando via Redpanda (Docker Compose) | 🔲 Pendente |
 | **2 — Containerização + Kubernetes** | Imagens multi-stage, manifests k8s, probes, resource limits | 🔲 Pendente |
-| **3 — CI/CD** | GitHub Actions: build → lint → scan (Trivy) → push para ghcr.io | 🔲 Pendente |
+| **3 — CI/CD** | GitHub Actions: build → lint → scan (Trivy) → push para ghcr.io | ✅ Concluída |
 | **4 — Observabilidade** | Dashboards Grafana, logs Loki, traces distribuídos entre serviços | 🔲 Pendente |
 | **5 — IaC + GitOps** | Terraform + Helm + ArgoCD sincronizando cluster com Git | 🔲 Pendente |
 | **6 — Resiliência + Autoscaling** | k6 simulando pico de dispositivos, HPA, chaos engineering | 🔲 Pendente |
