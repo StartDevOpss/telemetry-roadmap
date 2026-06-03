@@ -111,73 +111,70 @@ services:
       retries: 5
 
   # ──────────────────────────────────────────
-  # Serviços da aplicação (ativados na Fase 1)
+  # Serviços da aplicação
   # ──────────────────────────────────────────
 
-  # ingestion-service:
-  #   build:
-  #     context: .
-  #     dockerfile: services/ingestion-service/Dockerfile
-  #   container_name: ingestion-service
-  #   environment:
-  #     KAFKA_BROKERS: redpanda:9092
-  #     HTTP_ADDR: ":8081"
-  #   ports:
-  #     - "8081:8081"
-  #   depends_on:
-  #     redpanda:
-  #       condition: service_healthy
-  #   networks:
-  #     - telemetry-net
-  #   restart: unless-stopped
+  ingestion-service:
+    build:
+      context: .
+      dockerfile: services/ingestion-service/Dockerfile
+    container_name: ingestion-service
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      HTTP_ADDR: ":8081"
+    ports:
+      - "8081:8081"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    networks:
+      - telemetry-net
+    restart: unless-stopped
 
-  # device-service:
-  #   build:
-  #     context: .
-  #     dockerfile: services/device-service/Dockerfile
-  #   container_name: device-service
-  #   environment:
-  #     KAFKA_BROKERS: redpanda:9092
-  #     DATABASE_URL: postgres://app:app_pass@postgres:5432/telemetry?sslmode=disable
-  #     REDIS_URL: redis://redis:6379
-  #   depends_on:
-  #     redpanda:
-  #       condition: service_healthy
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - telemetry-net
-  #   restart: unless-stopped
+  device-service:
+    build:
+      context: .
+      dockerfile: services/device-service/Dockerfile
+    container_name: device-service
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      DATABASE_URL: postgres://app:app_pass@postgres:5432/telemetry?sslmode=disable
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      redpanda:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - telemetry-net
+    restart: unless-stopped
 
-  # alert-service:
-  #   build:
-  #     context: .
-  #     dockerfile: services/alert-service/Dockerfile
-  #   container_name: alert-service
-  #   environment:
-  #     KAFKA_BROKERS: redpanda:9092
-  #   depends_on:
-  #     redpanda:
-  #       condition: service_healthy
-  #   networks:
-  #     - telemetry-net
-  #   restart: unless-stopped
+  alert-service:
+    build:
+      context: .
+      dockerfile: services/alert-service/Dockerfile
+    container_name: alert-service
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    networks:
+      - telemetry-net
+    restart: unless-stopped
 
-  # dashboard-service:
-  #   build:
-  #     context: .
-  #     dockerfile: services/dashboard-service/Dockerfile
-  #   container_name: dashboard-service
-  #   environment:
-  #     KAFKA_BROKERS: redpanda:9092
-  #     HTTP_ADDR: ":8082"
-  #   ports:
-  #     - "8082:8082"
-  #   depends_on:
-  #     redpanda:
-  #       condition: service_healthy
-  #   networks:
-  #     - telemetry-net
-  #   restart: unless-stopped
+  dashboard-service:
+    build:
+      context: .
+      dockerfile: services/dashboard-service/Dockerfile
+    container_name: dashboard-service
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    networks:
+      - telemetry-net
+    restart: unless-stopped
