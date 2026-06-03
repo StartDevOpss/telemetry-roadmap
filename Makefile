@@ -50,6 +50,44 @@ health:
 clean:
 	docker compose down -v --rmi local
 
+## ── Kubernetes (Fase 2) ──────────────────────────────────────────────────────
+
+## k8s-setup: Cria cluster kind, build das imagens e aplica todos os manifests
+k8s-setup:
+	bash infra/k8s/setup-cluster.sh
+
+## k8s-down: Remove o cluster kind
+k8s-down:
+	kind delete cluster --name telemetry-platform
+
+## k8s-status: Mostra todos os pods do namespace telemetry
+k8s-status:
+	kubectl get pods -n telemetry -o wide
+
+## k8s-logs: Tail dos logs do dashboard no k8s
+k8s-logs:
+	kubectl logs -n telemetry -l app=dashboard-service -f --max-log-requests=5
+
+## k8s-telemetry: Envia telemetria de teste para o cluster k8s (porta 30081)
+k8s-telemetry:
+	curl -s -X POST http://localhost:30081/telemetry \
+	  -H "Content-Type: application/json" \
+	  -d '{"device_id":"device-k8s","payload":{"lat":-15.62,"lon":-47.66,"battery":0.12,"temperature_c":43.5,"speed_kmh":95.0}}'
+
+## k8s-reload: Reconstrói imagens, recarrega no kind e faz rollout restart
+k8s-reload:
+	docker build -f services/ingestion-service/Dockerfile -t telemetry/ingestion-service:latest .
+	docker build -f services/device-service/Dockerfile    -t telemetry/device-service:latest    .
+	docker build -f services/alert-service/Dockerfile     -t telemetry/alert-service:latest     .
+	docker build -f services/dashboard-service/Dockerfile -t telemetry/dashboard-service:latest .
+	kind load docker-image telemetry/ingestion-service:latest --name telemetry-platform
+	kind load docker-image telemetry/device-service:latest    --name telemetry-platform
+	kind load docker-image telemetry/alert-service:latest     --name telemetry-platform
+	kind load docker-image telemetry/dashboard-service:latest --name telemetry-platform
+	kubectl rollout restart deployment -n telemetry
+
+## ── Utilitários ──────────────────────────────────────────────────────────────
+
 ## deps: Gera go.sum para todos os serviços (requer Go instalado)
 deps:
 	@for svc in $(SERVICES); do \

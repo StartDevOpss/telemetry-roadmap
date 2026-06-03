@@ -1,0 +1,10 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telemetry-config
+  namespace: telemetry
+data:
+  KAFKA_BROKERS: "redpanda:9092"
+  DATABASE_URL: "postgres://app:app_pass@postgres:5432/telemetry?sslmode=disable"
+  REDIS_URL: "redis://redis:6379"
+  HTTP_ADDR: ":8081"
