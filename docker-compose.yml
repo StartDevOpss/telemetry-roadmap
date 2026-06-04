@@ -13,6 +13,8 @@ volumes:
   redpanda-data:
   postgres-data:
   redis-data:
+  grafana-data:
+  prometheus-data:
 
 services:
 
@@ -114,6 +116,86 @@ services:
   # Serviços da aplicação
   # ──────────────────────────────────────────
 
+  # ──────────────────────────────────────────
+  # Observabilidade (Fase 4)
+  # ──────────────────────────────────────────
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.119.0
+    container_name: otel-collector
+    command: ["--config=/etc/otel/config.yaml"]
+    volumes:
+      - ./observability/otel-collector/otel-collector-config.yaml:/etc/otel/config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+      - "8889:8889"   # Prometheus exporter
+    networks:
+      - telemetry-net
+    depends_on:
+      - tempo
+      - loki
+
+  prometheus:
+    image: prom/prometheus:v3.3.1
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    ports:
+      - "9092:9090"
+    networks:
+      - telemetry-net
+
+  grafana:
+    image: grafana/grafana:11.5.2
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
+    networks:
+      - telemetry-net
+    depends_on:
+      - prometheus
+      - loki
+      - tempo
+
+  loki:
+    image: grafana/loki:3.4.2
+    container_name: loki
+    command: -config.file=/etc/loki/config.yaml
+    volumes:
+      - ./observability/loki/loki-config.yaml:/etc/loki/config.yaml:ro
+    ports:
+      - "3100:3100"
+    networks:
+      - telemetry-net
+
+  tempo:
+    image: grafana/tempo:2.7.2
+    container_name: tempo
+    command: ["-config.file=/etc/tempo/config.yaml"]
+    volumes:
+      - ./observability/tempo/tempo-config.yaml:/etc/tempo/config.yaml:ro
+    ports:
+      - "3200:3200"   # Tempo HTTP
+      - "4320:4317"   # OTLP gRPC (para o collector enviar)
+    networks:
+      - telemetry-net
+
+  # ──────────────────────────────────────────
+  # Serviços da aplicação
+  # ──────────────────────────────────────────
+
   ingestion-service:
     build:
       context: .
@@ -122,8 +204,10 @@ services:
     environment:
       KAFKA_BROKERS: redpanda:9092
       HTTP_ADDR: ":8081"
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     ports:
       - "8081:8081"
+      - "9091:9090"
     depends_on:
       redpanda:
         condition: service_healthy
@@ -140,6 +224,7 @@ services:
       KAFKA_BROKERS: redpanda:9092
       DATABASE_URL: postgres://app:app_pass@postgres:5432/telemetry?sslmode=disable
       REDIS_URL: redis://redis:6379
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     depends_on:
       redpanda:
         condition: service_healthy
@@ -158,6 +243,7 @@ services:
     container_name: alert-service
     environment:
       KAFKA_BROKERS: redpanda:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     depends_on:
       redpanda:
         condition: service_healthy
@@ -172,6 +258,7 @@ services:
     container_name: dashboard-service
     environment:
       KAFKA_BROKERS: redpanda:9092
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     depends_on:
       redpanda:
         condition: service_healthy

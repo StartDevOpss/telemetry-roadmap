@@ -11,7 +11,10 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/telemetry-platform/device-service/internal/repository"
 	"github.com/telemetry-platform/events"
+	"github.com/telemetry-platform/telemetryobs"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Consumer struct {
@@ -19,9 +22,10 @@ type Consumer struct {
 	rdb    *redis.Client
 	client *kgo.Client
 	prod   *kgo.Client
+	tracer trace.Tracer
 }
 
-func New(brokers []string, repo *repository.DeviceRepository, rdb *redis.Client) (*Consumer, error) {
+func New(brokers []string, repo *repository.DeviceRepository, rdb *redis.Client, tracer trace.Tracer) (*Consumer, error) {
 	reader, err := kgo.NewClient(
 		kgo.SeedBrokers(brokers...),
 		kgo.ConsumerGroup("device-service-cg"),
@@ -38,7 +42,7 @@ func New(brokers []string, repo *repository.DeviceRepository, rdb *redis.Client)
 		reader.Close()
 		return nil, err
 	}
-	return &Consumer{repo: repo, rdb: rdb, client: reader, prod: writer}, nil
+	return &Consumer{repo: repo, rdb: rdb, client: reader, prod: writer, tracer: tracer}, nil
 }
 
 func (c *Consumer) Close() {
@@ -65,6 +69,11 @@ func (c *Consumer) Run(ctx context.Context) {
 }
 
 func (c *Consumer) handle(ctx context.Context, r *kgo.Record) error {
+	ctx, span := c.tracer.Start(ctx, "device.update_state")
+	defer span.End()
+
+	inicio := time.Now()
+
 	var env events.Envelope
 	if err := json.Unmarshal(r.Value, &env); err != nil {
 		return err
@@ -84,6 +93,11 @@ func (c *Consumer) handle(ctx context.Context, r *kgo.Record) error {
 	if err := json.Unmarshal(env.Payload, &p); err != nil {
 		return err
 	}
+
+	span.SetAttributes(
+		attribute.String("device.id", env.DeviceID),
+		attribute.Float64("device.battery", p.Battery),
+	)
 
 	log.Printf("PROCESSANDO telemetria device_id=%s bateria=%.0f%% temp=%.1f°C vel=%.1fkm/h",
 		env.DeviceID, p.Battery*100, p.TemperatureC, p.SpeedKmh)
@@ -106,7 +120,11 @@ func (c *Consumer) handle(ctx context.Context, r *kgo.Record) error {
 		log.Printf("AVISO Redis device_id=%s: %v", env.DeviceID, err)
 	}
 
-	return c.publishStateUpdated(ctx, env.DeviceID, p)
+	if err := c.publishStateUpdated(ctx, env.DeviceID, p); err != nil {
+		return err
+	}
+	telemetryobs.ProcessingDuration.WithLabelValues("device-service").Observe(time.Since(inicio).Seconds())
+	return nil
 }
 
 func (c *Consumer) publishStateUpdated(ctx context.Context, deviceID string, p events.TelemetryPayload) error {
@@ -141,6 +159,7 @@ func (c *Consumer) publishStateUpdated(ctx context.Context, deviceID string, p e
 	}).FirstErr(); err != nil {
 		return err
 	}
+	telemetryobs.ActiveDevices.Inc()
 	log.Printf("Evento DeviceStateUpdated publicado device_id=%s", deviceID)
 	return nil
 }

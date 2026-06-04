@@ -1,0 +1,85 @@
+{
+  "title": "Plataforma de Telemetria IoT",
+  "uid": "telemetry-platform",
+  "tags": ["telemetry", "iot"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "refresh": "5s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "Eventos recebidos por segundo",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(telemetry_events_received_total[1m])",
+          "legendFormat": "eventos/s"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "Alertas disparados por regra",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "rate(telemetry_alerts_triggered_total[1m])",
+          "legendFormat": "{{rule}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "Latência de processamento (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.50, rate(telemetry_processing_duration_seconds_bucket[1m]))",
+          "legendFormat": "p50"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.95, rate(telemetry_processing_duration_seconds_bucket[1m]))",
+          "legendFormat": "p95"
+        },
+        {
+          "datasource": "Prometheus",
+          "expr": "histogram_quantile(0.99, rate(telemetry_processing_duration_seconds_bucket[1m]))",
+          "legendFormat": "p99"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "Dispositivos únicos ativos (últimos 5 min)",
+      "type": "stat",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [
+        {
+          "datasource": "Prometheus",
+          "expr": "telemetry_active_devices",
+          "legendFormat": "dispositivos"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "Logs dos serviços",
+      "type": "logs",
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 16},
+      "targets": [
+        {
+          "datasource": "Loki",
+          "expr": "{job=~\"telemetry.*\"}",
+          "legendFormat": ""
+        }
+      ]
+    }
+  ]
+}

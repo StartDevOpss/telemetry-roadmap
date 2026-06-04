@@ -6,14 +6,18 @@ import (
 	"log"
 
 	"github.com/telemetry-platform/events"
+	"github.com/telemetry-platform/telemetryobs"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type Consumer struct {
 	client *kgo.Client
+	tracer trace.Tracer
 }
 
-func New(brokers []string) (*Consumer, error) {
+func New(brokers []string, tracer trace.Tracer) (*Consumer, error) {
 	cl, err := kgo.NewClient(
 		kgo.SeedBrokers(brokers...),
 		kgo.ConsumerGroup("dashboard-service-cg"),
@@ -25,7 +29,7 @@ func New(brokers []string) (*Consumer, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Consumer{client: cl}, nil
+	return &Consumer{client: cl, tracer: tracer}, nil
 }
 
 func (c *Consumer) Close() { c.client.Close() }
@@ -47,11 +51,20 @@ func (c *Consumer) Run(ctx context.Context) {
 }
 
 func (c *Consumer) handle(r *kgo.Record) {
+	ctx := context.Background()
+	_, span := c.tracer.Start(ctx, "dashboard.process_event")
+	defer span.End()
+
 	var env events.Envelope
 	if err := json.Unmarshal(r.Value, &env); err != nil {
 		log.Printf("ERRO ao deserializar tópico=%s: %v", r.Topic, err)
 		return
 	}
+
+	span.SetAttributes(
+		attribute.String("event.type", env.EventType),
+		attribute.String("device.id", env.DeviceID),
+	)
 
 	switch env.EventType {
 	case events.TypeDeviceStateUpdated:
@@ -60,6 +73,7 @@ func (c *Consumer) handle(r *kgo.Record) {
 			log.Printf("ERRO ao decodificar DeviceStateUpdated: %v", err)
 			return
 		}
+		telemetryobs.ProcessingDuration.WithLabelValues("dashboard-service").Observe(0)
 		log.Printf("[DASHBOARD] ESTADO ATUALIZADO device_id=%s bateria=%.0f%% temp=%.1f°C vel=%.1fkm/h pos=(%.4f,%.4f)",
 			env.DeviceID, p.LastBattery*100, p.LastTemperatureC, p.LastSpeedKmh, p.LastLat, p.LastLon)
 

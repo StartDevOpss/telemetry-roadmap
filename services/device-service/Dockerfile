@@ -1,6 +1,7 @@
 FROM golang:1.25-alpine AS builder
 WORKDIR /workspace
 COPY pkg/events ./pkg/events
+COPY pkg/telemetryobs ./pkg/telemetryobs
 COPY services/device-service/go.mod ./services/device-service/
 WORKDIR /workspace/services/device-service
 ENV GOFLAGS=-mod=mod

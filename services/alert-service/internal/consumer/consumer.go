@@ -10,7 +10,10 @@ import (
 	"github.com/google/uuid"
 	"github.com/telemetry-platform/alert-service/internal/rules"
 	"github.com/telemetry-platform/events"
+	"github.com/telemetry-platform/telemetryobs"
 	"github.com/twmb/franz-go/pkg/kgo"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // seen rastreia event_ids processados em memória.
@@ -20,9 +23,10 @@ var seen sync.Map
 type Consumer struct {
 	client *kgo.Client
 	prod   *kgo.Client
+	tracer trace.Tracer
 }
 
-func New(brokers []string) (*Consumer, error) {
+func New(brokers []string, tracer trace.Tracer) (*Consumer, error) {
 	reader, err := kgo.NewClient(
 		kgo.SeedBrokers(brokers...),
 		kgo.ConsumerGroup("alert-service-cg"),
@@ -39,7 +43,7 @@ func New(brokers []string) (*Consumer, error) {
 		reader.Close()
 		return nil, err
 	}
-	return &Consumer{client: reader, prod: writer}, nil
+	return &Consumer{client: reader, prod: writer, tracer: tracer}, nil
 }
 
 func (c *Consumer) Close() {
@@ -66,6 +70,11 @@ func (c *Consumer) Run(ctx context.Context) {
 }
 
 func (c *Consumer) handle(ctx context.Context, r *kgo.Record) error {
+	ctx, span := c.tracer.Start(ctx, "alert.evaluate_rules")
+	defer span.End()
+
+	inicio := time.Now()
+
 	var env events.Envelope
 	if err := json.Unmarshal(r.Value, &env); err != nil {
 		return err
@@ -81,12 +90,17 @@ func (c *Consumer) handle(ctx context.Context, r *kgo.Record) error {
 		return err
 	}
 
+	span.SetAttributes(attribute.String("device.id", env.DeviceID))
+
 	violations := rules.Evaluate(p)
+	telemetryobs.ProcessingDuration.WithLabelValues("alert-service").Observe(time.Since(inicio).Seconds())
+
 	if len(violations) == 0 {
 		return nil
 	}
 
 	for _, v := range violations {
+		telemetryobs.AlertsTriggered.WithLabelValues(v.Rule, v.Severity).Inc()
 		log.Printf("ALERTA [%s/%s] device_id=%s valor=%.2f limite=%.2f",
 			v.Rule, v.Severity, env.DeviceID, v.Value, v.Limit)
 		if err := c.publishAlert(ctx, env.DeviceID, v); err != nil {
