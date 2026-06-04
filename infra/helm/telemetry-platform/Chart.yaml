@@ -1,0 +1,14 @@
+apiVersion: v2
+name: telemetry-platform
+description: Plataforma de telemetria IoT orientada a eventos com 4 microsserviços
+type: application
+version: 0.5.0
+appVersion: "0.5.0"
+keywords:
+  - iot
+  - telemetry
+  - event-driven
+  - kafka
+maintainers:
+  - name: StartDevOpss
+    url: https://github.com/StartDevOpss/telemetry-roadmap

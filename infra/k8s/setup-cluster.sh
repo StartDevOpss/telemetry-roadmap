@@ -54,14 +54,26 @@ kubectl apply -f "$K8S_DIR/23-dashboard-service.yaml"
 
 echo ""
 echo "=== Cluster pronto! ==="
+
+# Define telemetry como namespace padrão (requer kubens/kubectx instalado)
+if command -v kubens >/dev/null 2>&1; then
+  kubens telemetry
+  echo "Namespace padrão definido: telemetry (via kubens)"
+else
+  echo "Dica: instale kubectx/kubens para definir o namespace padrão automaticamente."
+  echo "  https://github.com/ahmetb/kubectx"
+fi
+
+echo ""
 echo "ingestion-service: http://localhost:30081/health"
 echo ""
 echo "Para ver os pods:"
+echo "  k get pods          # com alias k=kubectl + kubens telemetry"
 echo "  kubectl get pods -n telemetry"
 echo ""
 echo "Para enviar telemetria de teste:"
 echo "  curl -X POST http://localhost:30081/telemetry -H 'Content-Type: application/json' \\"
 echo "    -d '{\"device_id\":\"device-001\",\"payload\":{\"lat\":-15.62,\"lon\":-47.66,\"battery\":0.12,\"temperature_c\":43.5,\"speed_kmh\":95.0}}'"
 echo ""
-echo "Para ver logs do dashboard:"
-echo "  kubectl logs -n telemetry -l app=dashboard-service -f"
+echo "Para navegar no cluster com TUI:"
+echo "  k9s"

@@ -1,0 +1,95 @@
+# ── Imagens ───────────────────────────────────────────────────────────────────
+# imageRegistry vazio = imagens locais carregadas no kind via `kind load`.
+# Para ghcr.io use: "ghcr.io/startdevopss"
+global:
+  imageRegistry: ""
+  imageTag: "latest"
+  imagePullPolicy: Never   # Never para kind local; IfNotPresent para registry remoto
+
+# ── Configuração compartilhada (monta como ConfigMap) ─────────────────────────
+config:
+  kafkaBrokers: "redpanda:9092"
+  databaseUrl: "postgres://app:app_pass@postgres:5432/telemetry?sslmode=disable"
+  redisUrl: "redis://redis:6379"
+  httpAddr: ":8081"
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+secrets:
+  postgresPassword: "YXBwX3Bhc3M="   # base64("app_pass") — use Vault/ESO em prod
+
+# ── Redpanda ──────────────────────────────────────────────────────────────────
+redpanda:
+  image: "redpandadata/redpanda:v23.3.11"
+  resources:
+    requests:
+      cpu: "250m"
+      memory: "512Mi"
+    limits:
+      cpu: "500m"
+      memory: "768Mi"
+  storage: "1Gi"
+
+# ── PostgreSQL ────────────────────────────────────────────────────────────────
+postgres:
+  image: "postgres:16-alpine"
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "128Mi"
+    limits:
+      cpu: "250m"
+      memory: "256Mi"
+  storage: "1Gi"
+
+# ── Redis ─────────────────────────────────────────────────────────────────────
+redis:
+  image: "redis:7-alpine"
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "100m"
+      memory: "128Mi"
+
+# ── Serviços de aplicação ─────────────────────────────────────────────────────
+ingestion:
+  replicas: 2
+  nodePort: 30081
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "32Mi"
+    limits:
+      cpu: "250m"
+      memory: "64Mi"
+
+device:
+  replicas: 2
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "32Mi"
+    limits:
+      cpu: "250m"
+      memory: "64Mi"
+
+alert:
+  replicas: 2
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "32Mi"
+    limits:
+      cpu: "150m"
+      memory: "64Mi"
+
+dashboard:
+  replicas: 1
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "32Mi"
+    limits:
+      cpu: "100m"
+      memory: "64Mi"

@@ -1,0 +1,86 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redpanda
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: redpanda
+    {{- include "telemetry-platform.labels" . | nindent 4 }}
+spec:
+  serviceName: redpanda
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redpanda
+  template:
+    metadata:
+      labels:
+        app: redpanda
+    spec:
+      securityContext:
+        runAsUser: 101
+        runAsGroup: 101
+        fsGroup: 101
+      containers:
+        - name: redpanda
+          image: {{ .Values.redpanda.image }}
+          args:
+            - redpanda
+            - start
+            - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:19092
+            - --advertise-kafka-addr internal://redpanda:9092,external://localhost:19092
+            - --smp 1
+            - --memory 512M
+            - --mode dev-container
+            - --default-log-level=warn
+          ports:
+            - name: kafka
+              containerPort: 9092
+            - name: kafka-ext
+              containerPort: 19092
+            - name: admin
+              containerPort: 9644
+          resources:
+            {{- toYaml .Values.redpanda.resources | nindent 12 }}
+          readinessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "rpk cluster health | grep -E 'Healthy:.+true'"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            exec:
+              command: ["/bin/sh", "-c", "rpk cluster health | grep -E 'Healthy:.+true'"]
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            failureThreshold: 4
+          volumeMounts:
+            - name: redpanda-data
+              mountPath: /var/lib/redpanda/data
+  volumeClaimTemplates:
+    - metadata:
+        name: redpanda-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.redpanda.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redpanda
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: redpanda
+    {{- include "telemetry-platform.labels" . | nindent 4 }}
+spec:
+  selector:
+    app: redpanda
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: 9092
+    - name: admin
+      port: 9644
+      targetPort: 9644

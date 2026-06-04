@@ -60,9 +60,17 @@ k8s-setup:
 k8s-down:
 	kind delete cluster --name telemetry-platform
 
+## k8s-ns: Define telemetry como namespace padrão (requer kubens)
+k8s-ns:
+	kubens telemetry
+
 ## k8s-status: Mostra todos os pods do namespace telemetry
 k8s-status:
 	kubectl get pods -n telemetry -o wide
+
+## k9s: Abre o k9s já no namespace telemetry
+k9s:
+	k9s -n telemetry
 
 ## k8s-logs: Tail dos logs do dashboard no k8s
 k8s-logs:
@@ -85,6 +93,65 @@ k8s-reload:
 	kind load docker-image telemetry/alert-service:latest     --name telemetry-platform
 	kind load docker-image telemetry/dashboard-service:latest --name telemetry-platform
 	kubectl rollout restart deployment -n telemetry
+
+## ── Utilitários ──────────────────────────────────────────────────────────────
+
+## ── IaC + GitOps (Fase 5) ────────────────────────────────────────────────────
+
+## tf-init: Inicializa o Terraform (baixa o provider kind)
+tf-init:
+	cd infra/terraform && terraform init
+
+## tf-plan: Planeja a criação do cluster kind
+tf-plan:
+	cd infra/terraform && terraform plan
+
+## tf-apply: Cria o cluster kind via Terraform
+tf-apply:
+	cd infra/terraform && terraform apply -auto-approve
+
+## tf-destroy: Destrói o cluster kind via Terraform
+tf-destroy:
+	cd infra/terraform && terraform destroy -auto-approve
+
+## helm-lint: Valida o chart sem instalar
+helm-lint:
+	helm lint infra/helm/telemetry-platform
+
+## helm-template: Renderiza os templates localmente (dry-run)
+helm-template:
+	helm template telemetry-platform infra/helm/telemetry-platform --namespace telemetry
+
+## helm-install: Instala/atualiza o chart no cluster
+helm-install:
+	helm upgrade --install telemetry-platform infra/helm/telemetry-platform \
+	  --namespace telemetry --create-namespace
+
+## helm-uninstall: Remove o release do cluster
+helm-uninstall:
+	helm uninstall telemetry-platform --namespace telemetry
+
+## argocd-bootstrap: Instala o ArgoCD e cria a Application de GitOps
+argocd-bootstrap:
+	kubectl create namespace argocd --dry-run=client -o yaml | kubectl apply -f -
+	kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/v2.10.0/manifests/install.yaml
+	kubectl wait --for=condition=available deployment -l app.kubernetes.io/name=argocd-server \
+	  -n argocd --timeout=180s
+	kubectl apply -f infra/argocd/apps/telemetry-platform.yaml
+	@echo ""
+	@echo "ArgoCD instalado. Acesse a UI:"
+	@echo "  make argocd-ui        (em outro terminal)"
+	@echo "  Usuário: admin"
+	@echo "  Senha:   make argocd-password"
+
+## argocd-password: Mostra a senha inicial do ArgoCD
+argocd-password:
+	@kubectl -n argocd get secret argocd-initial-admin-secret \
+	  -o jsonpath="{.data.password}" | base64 -d && echo
+
+## argocd-ui: Port-forward da UI do ArgoCD para https://localhost:8080
+argocd-ui:
+	kubectl port-forward svc/argocd-server -n argocd 8080:443
 
 ## ── Utilitários ──────────────────────────────────────────────────────────────
 

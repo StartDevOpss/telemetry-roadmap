@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: telemetry-config
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "telemetry-platform.labels" . | nindent 4 }}
+data:
+  KAFKA_BROKERS: {{ .Values.config.kafkaBrokers | quote }}
+  DATABASE_URL:  {{ .Values.config.databaseUrl  | quote }}
+  REDIS_URL:     {{ .Values.config.redisUrl      | quote }}
+  HTTP_ADDR:     {{ .Values.config.httpAddr       | quote }}

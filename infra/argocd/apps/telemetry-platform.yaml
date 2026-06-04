@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: telemetry-platform
+  namespace: argocd
+  # Garante que o ArgoCD delete os recursos do cluster quando a Application for removida.
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/StartDevOpss/telemetry-roadmap
+    targetRevision: HEAD
+    path: infra/helm/telemetry-platform
+    helm:
+      valueFiles:
+        - values.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: telemetry
+
+  syncPolicy:
+    automated:
+      prune: true       # remove recursos que saíram do Git
+      selfHeal: true    # reverte mudanças manuais feitas direto no cluster
+    syncOptions:
+      - CreateNamespace=true

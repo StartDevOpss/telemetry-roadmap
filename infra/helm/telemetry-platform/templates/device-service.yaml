@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: device-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: device-service
+    {{- include "telemetry-platform.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.device.replicas }}
+  selector:
+    matchLabels:
+      app: device-service
+  template:
+    metadata:
+      labels:
+        app: device-service
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65532
+      containers:
+        - name: device-service
+          image: {{ include "telemetry-platform.image" (dict "registry" .Values.global.imageRegistry "name" "telemetry/device-service" "tag" .Values.global.imageTag) }}
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          env:
+            - name: KAFKA_BROKERS
+              valueFrom:
+                configMapKeyRef:
+                  name: telemetry-config
+                  key: KAFKA_BROKERS
+            - name: DATABASE_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: telemetry-config
+                  key: DATABASE_URL
+            - name: REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: telemetry-config
+                  key: REDIS_URL
+          ports:
+            - containerPort: 8081
+          resources:
+            {{- toYaml .Values.device.resources | nindent 12 }}
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 10

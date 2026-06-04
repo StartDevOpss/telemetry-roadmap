@@ -1,0 +1,12 @@
+Telemetry Platform instalada com sucesso!
+
+Ingestion service (NodePort {{ .Values.ingestion.nodePort }}):
+  http://localhost:{{ .Values.ingestion.nodePort }}/health
+
+Enviar telemetria de teste:
+  curl -X POST http://localhost:{{ .Values.ingestion.nodePort }}/telemetry \
+    -H "Content-Type: application/json" \
+    -d '{"device_id":"device-001","payload":{"lat":-15.62,"lon":-47.66,"battery":0.12,"temperature_c":43.5,"speed_kmh":95.0}}'
+
+Ver pods:
+  kubectl get pods -n {{ .Release.Namespace }}

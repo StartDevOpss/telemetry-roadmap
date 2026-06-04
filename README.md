@@ -88,13 +88,115 @@ graph TD
 | Fase | Objetivo | Status |
 |---|---|---|
 | **0 — Fundação** | Monorepo, diagrama de arquitetura, contratos de eventos | ✅ Concluída |
-| **1 — Serviços + Event-driven** | 4 serviços rodando e se comunicando via Redpanda (Docker Compose) | 🔲 Pendente |
-| **2 — Containerização + Kubernetes** | Imagens multi-stage, manifests k8s, probes, resource limits | 🔲 Pendente |
+| **1 — Serviços + Event-driven** | 4 serviços rodando e se comunicando via Redpanda (Docker Compose) | ✅ Concluída |
+| **2 — Containerização + Kubernetes** | Imagens multi-stage, manifests k8s, probes, resource limits | ✅ Concluída |
 | **3 — CI/CD** | GitHub Actions: build → lint → scan (Trivy) → push para ghcr.io | ✅ Concluída |
-| **4 — Observabilidade** | Dashboards Grafana, logs Loki, traces distribuídos entre serviços | 🔲 Pendente |
-| **5 — IaC + GitOps** | Terraform + Helm + ArgoCD sincronizando cluster com Git | 🔲 Pendente |
+| **4 — Observabilidade** | Dashboards Grafana, logs Loki, traces distribuídos entre serviços | ✅ Concluída |
+| **5 — IaC + GitOps** | Terraform + Helm + ArgoCD sincronizando cluster com Git | ✅ Concluída |
 | **6 — Resiliência + Autoscaling** | k6 simulando pico de dispositivos, HPA, chaos engineering | 🔲 Pendente |
 | **7 — Polimento do Portfólio** | Métricas de efeito, GIFs dos dashboards, post de arquitetura | 🔲 Pendente |
+
+---
+
+## Developer Experience
+
+Ferramentas que tornam o dia a dia com Kubernetes muito mais rápido:
+
+### alias k=kubectl
+
+Adicione ao seu `~/.bashrc` ou `~/.zshrc`:
+
+```bash
+alias k=kubectl
+```
+
+### kubens — namespace padrão sem digitar `-n` toda vez
+
+```bash
+# Instalar (macOS)
+brew install kubectx
+
+# Instalar (Linux)
+sudo apt install kubectx   # ou via https://github.com/ahmetb/kubectx
+
+# Usar
+kubens telemetry   # define telemetry como namespace padrão
+# ou via Makefile:
+make k8s-ns
+```
+
+Com os dois configurados, os comandos ficam assim:
+
+```bash
+k get pods                          # lista pods do namespace telemetry
+k get svc                           # serviços
+k logs -l app=ingestion-service -f  # logs em tempo real
+k exec -it <pod> -- sh              # shell dentro do container
+```
+
+### k9s — TUI para navegar no cluster
+
+Interface visual no terminal — navega por pods, namespaces, logs, exec, tudo com teclado.
+
+```bash
+# Instalar (macOS)
+brew install k9s
+
+# Instalar (Linux / Windows)
+# https://k9scli.io/topics/install/
+
+# Abrir direto no namespace telemetry
+k9s -n telemetry
+# ou via Makefile:
+make k9s
+```
+
+Atalhos úteis dentro do k9s:
+
+| Tecla | Ação |
+|-------|------|
+| `0` | todos os namespaces |
+| `:pod` | navega para pods |
+| `l` | logs do pod selecionado |
+| `s` | shell no pod selecionado |
+| `d` | describe do recurso |
+| `ctrl+d` | deleta o recurso |
+
+---
+
+## Fase 5 — IaC + GitOps
+
+### Terraform (provisiona o cluster kind como código)
+
+```bash
+make tf-init     # baixa o provider tehcyx/kind
+make tf-plan     # preview das mudanças
+make tf-apply    # cria o cluster kind
+```
+
+### Helm (instala a plataforma no cluster)
+
+```bash
+make helm-lint      # valida o chart
+make helm-template  # dry-run: renderiza os manifests localmente
+make helm-install   # instala/atualiza o release no cluster
+```
+
+### ArgoCD (GitOps — sincroniza o cluster com este repositório)
+
+```bash
+# 1. Bootstrap do ArgoCD + criação da Application
+make argocd-bootstrap
+
+# 2. Em outro terminal, abre a UI
+make argocd-ui     # https://localhost:8080
+
+# 3. Credenciais
+# Usuário: admin
+make argocd-password
+```
+
+A partir daí, qualquer `git push` para `infra/helm/telemetry-platform/` é detectado pelo ArgoCD e sincronizado automaticamente no cluster (prune + selfHeal ativos).
 
 ---
 
