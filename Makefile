@@ -96,6 +96,57 @@ k8s-reload:
 
 ## ── Utilitários ──────────────────────────────────────────────────────────────
 
+## ── Resiliência + Autoscaling (Fase 6) ───────────────────────────────────────
+
+K6_IMAGE   := grafana/k6:latest
+K6_BASE_URL ?= http://host.docker.internal:30081
+
+## metrics-server: Instala o metrics-server no kind (necessário para o HPA)
+metrics-server:
+	kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml
+	kubectl patch deployment metrics-server -n kube-system \
+	  --type=json \
+	  -p='[{"op":"add","path":"/spec/template/spec/containers/0/args/-","value":"--kubelet-insecure-tls"}]'
+	kubectl wait --for=condition=available deployment/metrics-server -n kube-system --timeout=90s
+
+## hpa-apply: Aplica os HPAs no cluster
+hpa-apply:
+	kubectl apply -f infra/k8s/30-hpa.yaml
+
+## hpa-status: Mostra status atual dos HPAs (réplicas correntes vs desejadas)
+hpa-status:
+	kubectl get hpa -n telemetry
+
+## k6-smoke: Teste de sanidade rápido (5 VUs, 30s)
+k6-smoke:
+	docker run --rm \
+	  -v "$(CURDIR)/load-tests/k6:/scripts" \
+	  -e BASE_URL=$(K6_BASE_URL) \
+	  $(K6_IMAGE) run /scripts/smoke.js
+
+## k6-load: Teste de carga normal (até 200 VUs, 6min)
+k6-load:
+	docker run --rm \
+	  -v "$(CURDIR)/load-tests/k6:/scripts" \
+	  -e BASE_URL=$(K6_BASE_URL) \
+	  $(K6_IMAGE) run /scripts/load.js
+
+## k6-stress: Teste de estresse para acionar o HPA (até 2000 VUs, 13min)
+k6-stress:
+	docker run --rm \
+	  -v "$(CURDIR)/load-tests/k6:/scripts" \
+	  -e BASE_URL=$(K6_BASE_URL) \
+	  $(K6_IMAGE) run /scripts/stress.js
+
+## chaos-pod-kill: Mata um pod aleatório e mede o tempo de recovery (ex: make chaos-pod-kill SVC=ingestion-service)
+SVC ?= ingestion-service
+chaos-pod-kill:
+	bash chaos/pod-kill.sh $(SVC)
+
+## chaos-scale-zero: Escala um serviço para 0 réplicas e restaura (ex: make chaos-scale-zero SVC=device-service)
+chaos-scale-zero:
+	bash chaos/scale-zero.sh $(SVC)
+
 ## ── IaC + GitOps (Fase 5) ────────────────────────────────────────────────────
 
 ## tf-init: Inicializa o Terraform (baixa o provider kind)

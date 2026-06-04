@@ -93,3 +93,19 @@ dashboard:
     limits:
       cpu: "100m"
       memory: "64Mi"
+
+# ── HPA (requer metrics-server no cluster) ────────────────────────────────────
+hpa:
+  enabled: true
+  ingestion:
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilization: 70
+  device:
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilization: 70
+  alert:
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilization: 70

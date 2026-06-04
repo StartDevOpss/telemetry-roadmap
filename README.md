@@ -93,8 +93,63 @@ graph TD
 | **3 — CI/CD** | GitHub Actions: build → lint → scan (Trivy) → push para ghcr.io | ✅ Concluída |
 | **4 — Observabilidade** | Dashboards Grafana, logs Loki, traces distribuídos entre serviços | ✅ Concluída |
 | **5 — IaC + GitOps** | Terraform + Helm + ArgoCD sincronizando cluster com Git | ✅ Concluída |
-| **6 — Resiliência + Autoscaling** | k6 simulando pico de dispositivos, HPA, chaos engineering | 🔲 Pendente |
+| **6 — Resiliência + Autoscaling** | k6 simulando pico de dispositivos, HPA, chaos engineering | ✅ Concluída |
 | **7 — Polimento do Portfólio** | Métricas de efeito, GIFs dos dashboards, post de arquitetura | 🔲 Pendente |
+
+---
+
+## Fase 6 — Resiliência + Autoscaling
+
+### Pré-requisito: metrics-server (HPA precisa de métricas de CPU)
+
+```bash
+make metrics-server
+```
+
+### HPA — Horizontal Pod Autoscaler
+
+Os 3 serviços stateless escalam automaticamente entre 2 e 10 réplicas com base em CPU (alvo: 70%).
+
+```bash
+make hpa-apply       # aplica os HPAs no cluster
+make hpa-status      # mostra réplicas atuais vs desejadas em tempo real
+```
+
+### Testes de Carga com k6
+
+Requer Docker instalado. No Linux substitua `host.docker.internal` por `localhost`:
+
+```bash
+make k6-smoke    # sanidade rápida:   5 VUs  ×  30s
+make k6-load     # carga normal:    200 VUs  ×  6min  — p95 < 300ms
+make k6-stress   # pico extremo:   2000 VUs  × 13min  — aciona o HPA
+```
+
+Para observar o HPA escalando durante o stress test, em outro terminal:
+
+```bash
+watch -n2 kubectl get hpa -n telemetry
+# ou
+make hpa-status
+```
+
+### Chaos Engineering
+
+Prova que o sistema se auto-recupera de falhas.
+
+```bash
+# Mata um pod aleatório do ingestion-service e mede o recovery
+make chaos-pod-kill SVC=ingestion-service
+
+# Derruba o device-service por 20s e restaura
+make chaos-scale-zero SVC=device-service
+
+# Testa outros serviços
+make chaos-pod-kill SVC=alert-service
+make chaos-pod-kill SVC=dashboard-service
+```
+
+Os scripts medem e imprimem o **recovery time** ao final. O sistema deve se recuperar em < 30s.
 
 ---
 
