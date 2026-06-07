@@ -98,8 +98,9 @@ k8s-reload:
 
 ## ── Resiliência + Autoscaling (Fase 6) ───────────────────────────────────────
 
-K6_IMAGE   := grafana/k6:latest
-K6_BASE_URL ?= http://host.docker.internal:30081
+K6_IMAGE              := grafana/k6:latest
+K6_BASE_URL           ?= http://host.docker.internal:8081
+K6_PROMETHEUS_RW_URL  ?= http://host.docker.internal:9092/api/v1/write
 
 ## metrics-server: Instala o metrics-server no kind (necessário para o HPA)
 metrics-server:
@@ -117,26 +118,34 @@ hpa-apply:
 hpa-status:
 	kubectl get hpa -n telemetry
 
-## k6-smoke: Teste de sanidade rápido (5 VUs, 30s)
+K6_TREND_STATS         := p(50),p(95),p(99)
+
+## k6-smoke: Teste de sanidade rápido (100 VUs, 30s) — métricas enviadas ao Prometheus
 k6-smoke:
 	docker run --rm \
 	  -v "$(CURDIR)/load-tests/k6:/scripts" \
 	  -e BASE_URL=$(K6_BASE_URL) \
-	  $(K6_IMAGE) run /scripts/smoke.js
+	  -e K6_PROMETHEUS_RW_SERVER_URL=$(K6_PROMETHEUS_RW_URL) \
+	  -e K6_PROMETHEUS_RW_TREND_STATS="$(K6_TREND_STATS)" \
+	  $(K6_IMAGE) run --out experimental-prometheus-rw /scripts/smoke.js
 
-## k6-load: Teste de carga normal (até 200 VUs, 6min)
+## k6-load: Teste de carga normal (até 200 VUs, 6min) — métricas enviadas ao Prometheus
 k6-load:
 	docker run --rm \
 	  -v "$(CURDIR)/load-tests/k6:/scripts" \
 	  -e BASE_URL=$(K6_BASE_URL) \
-	  $(K6_IMAGE) run /scripts/load.js
+	  -e K6_PROMETHEUS_RW_SERVER_URL=$(K6_PROMETHEUS_RW_URL) \
+	  -e K6_PROMETHEUS_RW_TREND_STATS="$(K6_TREND_STATS)" \
+	  $(K6_IMAGE) run --out experimental-prometheus-rw /scripts/load.js
 
-## k6-stress: Teste de estresse para acionar o HPA (até 2000 VUs, 13min)
+## k6-stress: Teste de estresse para acionar o HPA (até 2000 VUs, 13min) — métricas enviadas ao Prometheus
 k6-stress:
 	docker run --rm \
 	  -v "$(CURDIR)/load-tests/k6:/scripts" \
 	  -e BASE_URL=$(K6_BASE_URL) \
-	  $(K6_IMAGE) run /scripts/stress.js
+	  -e K6_PROMETHEUS_RW_SERVER_URL=$(K6_PROMETHEUS_RW_URL) \
+	  -e K6_PROMETHEUS_RW_TREND_STATS="$(K6_TREND_STATS)" \
+	  $(K6_IMAGE) run --out experimental-prometheus-rw /scripts/stress.js
 
 ## chaos-pod-kill: Mata um pod aleatório e mede o tempo de recovery (ex: make chaos-pod-kill SVC=ingestion-service)
 SVC ?= ingestion-service

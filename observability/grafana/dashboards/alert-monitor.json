@@ -1,0 +1,454 @@
+{
+  "title": "Monitor de Alertas — Live Status",
+  "uid": "alert-monitor",
+  "tags": ["alertas", "monitor", "status"],
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": { "from": "now-1h", "to": "now" },
+  "schemaVersion": 39,
+  "panels": [
+
+    {
+      "id": 10,
+      "title": "Saúde dos Serviços",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "DOWN", "color": "red" },
+              "1": { "text": "UP", "color": "green" }
+            }}
+          ]
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none",
+        "orientation": "horizontal"
+      },
+      "targets": [
+        { "expr": "up{job=\"ingestion-service\"}", "legendFormat": "ingestion-service", "refId": "A" },
+        { "expr": "up{job=\"device-service\"}",    "legendFormat": "device-service",    "refId": "B" },
+        { "expr": "up{job=\"alert-service\"}",     "legendFormat": "alert-service",     "refId": "C" },
+        { "expr": "up{job=\"dashboard-service\"}", "legendFormat": "dashboard-service", "refId": "D" }
+      ]
+    },
+
+    {
+      "id": 11,
+      "title": "Heap Memory por Serviço (MB)",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "decmbytes",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 100 },
+              { "color": "red", "value": 150 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "expr": "go_memstats_heap_alloc_bytes{job=\"ingestion-service\"} / 1024 / 1024", "legendFormat": "ingestion-service", "refId": "A" },
+        { "expr": "go_memstats_heap_alloc_bytes{job=\"device-service\"} / 1024 / 1024",    "legendFormat": "device-service",    "refId": "B" },
+        { "expr": "go_memstats_heap_alloc_bytes{job=\"alert-service\"} / 1024 / 1024",     "legendFormat": "alert-service",     "refId": "C" },
+        { "expr": "go_memstats_heap_alloc_bytes{job=\"dashboard-service\"} / 1024 / 1024", "legendFormat": "dashboard-service", "refId": "D" }
+      ]
+    },
+
+    {
+      "id": 12,
+      "title": "Goroutines por Serviço",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 6 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 },
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 200 },
+              { "color": "red", "value": 500 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        { "expr": "go_goroutines{job=\"ingestion-service\"}", "legendFormat": "ingestion-service", "refId": "A" },
+        { "expr": "go_goroutines{job=\"device-service\"}",    "legendFormat": "device-service",    "refId": "B" },
+        { "expr": "go_goroutines{job=\"alert-service\"}",     "legendFormat": "alert-service",     "refId": "C" },
+        { "expr": "go_goroutines{job=\"dashboard-service\"}", "legendFormat": "dashboard-service", "refId": "D" }
+      ]
+    },
+
+    {
+      "id": 13,
+      "title": "Redpanda — Partições Sub-Replicadas",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 10, "w": 8, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "SAUDÁVEL", "color": "green" }
+            }}
+          ]
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "expr": "sum(vectorized_cluster_partition_under_replicated_replicas)",
+          "legendFormat": "partições sub-replicadas",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 14,
+      "title": "Alertas de Infraestrutura Ativos",
+      "type": "alertlist",
+      "gridPos": { "x": 8, "y": 10, "w": 16, "h": 4 },
+      "options": {
+        "groupMode": "default",
+        "maxItems": 10,
+        "sortOrder": 1,
+        "dashboardAlerts": false,
+        "alertInstanceLabelFilter": "source=\"infrastructure\"",
+        "stateFilter": {
+          "firing": true,
+          "pending": true,
+          "noData": false,
+          "normal": false,
+          "error": true
+        },
+        "viewMode": "list",
+        "showInactiveAlerts": false
+      }
+    },
+
+    {
+      "id": 1,
+      "title": "Status dos Alertas k6",
+      "type": "alertlist",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 8 },
+      "options": {
+        "groupMode": "default",
+        "maxItems": 20,
+        "sortOrder": 1,
+        "dashboardAlerts": false,
+        "alertInstanceLabelFilter": "",
+        "stateFilter": {
+          "firing": true,
+          "pending": true,
+          "noData": true,
+          "normal": true,
+          "error": true
+        },
+        "groupBy": [],
+        "viewMode": "list",
+        "showInactiveAlerts": true
+      }
+    },
+
+    {
+      "id": 2,
+      "title": "Erros acima de 1%?",
+      "type": "stat",
+      "gridPos": { "x": 0, "y": 8, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "OK", "color": "green" },
+              "1": { "text": "ALERTA!", "color": "red" }
+            }}
+          ]
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "expr": "k6_errors_rate > bool 0.01",
+          "legendFormat": "Erros > 1%",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 3,
+      "title": "Erros acima de 5%?",
+      "type": "stat",
+      "gridPos": { "x": 6, "y": 8, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "OK", "color": "green" },
+              "1": { "text": "CRÍTICO!", "color": "red" }
+            }}
+          ]
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "expr": "k6_errors_rate > bool 0.05",
+          "legendFormat": "Erros > 5%",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 4,
+      "title": "Taxa de Erros k6 (tempo real)",
+      "type": "stat",
+      "gridPos": { "x": 12, "y": 8, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 0.01 },
+              { "color": "red", "value": 0.05 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "expr": "k6_errors_rate",
+          "legendFormat": "Erros",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 5,
+      "title": "Latência p95 (ms)",
+      "type": "stat",
+      "gridPos": { "x": 18, "y": 8, "w": 6, "h": 5 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "decimals": 0,
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 300 },
+              { "color": "red", "value": 500 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "targets": [
+        {
+          "expr": "k6_http_req_duration_p95",
+          "legendFormat": "p95",
+          "refId": "A"
+        }
+      ]
+    },
+
+    {
+      "id": 6,
+      "title": "Histórico — Condições de Alerta (0=OK, 1=Violado)",
+      "type": "state-timeline",
+      "gridPos": { "x": 0, "y": 13, "w": 24, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          },
+          "mappings": [
+            { "type": "value", "options": {
+              "0": { "text": "OK", "color": "green" },
+              "1": { "text": "VIOLADO", "color": "red" }
+            }}
+          ],
+          "custom": {
+            "lineWidth": 0,
+            "fillOpacity": 70,
+            "spanNulls": false
+          }
+        }
+      },
+      "options": {
+        "mergeValues": true,
+        "showValue": "auto",
+        "alignValue": "center",
+        "rowHeight": 0.9,
+        "legend": { "showLegend": true, "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "expr": "k6_errors_rate > bool 0.01",
+          "legendFormat": "Erros > 1% (Warning)",
+          "refId": "A"
+        },
+        {
+          "expr": "k6_errors_rate > bool 0.05",
+          "legendFormat": "Erros > 5% (Crítico)",
+          "refId": "B"
+        },
+        {
+          "expr": "k6_http_req_failed_rate > bool 0.5",
+          "legendFormat": "Req Falha > 50%",
+          "refId": "C"
+        }
+      ]
+    },
+
+    {
+      "id": 7,
+      "title": "Taxa de Erros — Linha do Tempo",
+      "type": "timeseries",
+      "gridPos": { "x": 0, "y": 21, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15 },
+          "unit": "percentunit"
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "threshold 1% (warning)" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "yellow", "mode": "fixed" } },
+              { "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "threshold 5% (crítico)" },
+            "properties": [
+              { "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } },
+              { "id": "custom.lineStyle", "value": { "dash": [10, 10], "fill": "dash" } },
+              { "id": "custom.fillOpacity", "value": 0 }
+            ]
+          }
+        ]
+      },
+      "targets": [
+        { "expr": "k6_errors_rate", "legendFormat": "taxa de erros", "refId": "A" },
+        { "expr": "0.01", "legendFormat": "threshold 1% (warning)", "refId": "B" },
+        { "expr": "0.05", "legendFormat": "threshold 5% (crítico)", "refId": "C" }
+      ]
+    },
+
+    {
+      "id": 8,
+      "title": "Req com Falha — Linha do Tempo",
+      "type": "timeseries",
+      "gridPos": { "x": 12, "y": 21, "w": 12, "h": 7 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "fixedColor": "orange", "mode": "fixed" },
+          "custom": { "lineWidth": 2, "fillOpacity": 15 },
+          "unit": "percentunit"
+        }
+      },
+      "targets": [
+        { "expr": "k6_http_req_failed_rate", "legendFormat": "req com falha", "refId": "A" }
+      ]
+    }
+
+  ]
+}

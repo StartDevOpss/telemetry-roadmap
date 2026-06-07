@@ -7,7 +7,7 @@ import { check, sleep } from 'k6';
 import { BASE_URL, errorRate, telemetryDuration, telemetryPayload } from './helpers.js';
 
 export const options = {
-  vus:      5,
+  vus:      100,
   duration: '30s',
   thresholds: {
     http_req_duration: ['p(95)<500'],

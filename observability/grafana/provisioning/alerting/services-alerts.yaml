@@ -1,0 +1,252 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: services-health
+    folder: Infraestrutura
+    interval: 30s
+    rules:
+
+      # ── Serviços down ──────────────────────────────────────────────────────────
+
+      - uid: ingestion-service-down
+        title: "ingestion-service: Fora do Ar"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: "up{job=\"ingestion-service\"}"
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: B
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last, params: [] }
+        noDataState: Alerting
+        execErrState: Error
+        for: 30s
+        annotations:
+          summary: "ingestion-service está fora do ar"
+          description: "O serviço de ingestão de telemetria parou de responder. Dados de dispositivos não estão sendo processados."
+        labels:
+          severity: critical
+          service: ingestion-service
+          source: infrastructure
+        isPaused: false
+
+      - uid: device-service-down
+        title: "device-service: Fora do Ar"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: "up{job=\"device-service\"}"
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: B
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last, params: [] }
+        noDataState: Alerting
+        execErrState: Error
+        for: 30s
+        annotations:
+          summary: "device-service está fora do ar"
+          description: "O serviço de gerenciamento de dispositivos parou de responder."
+        labels:
+          severity: critical
+          service: device-service
+          source: infrastructure
+        isPaused: false
+
+      - uid: alert-service-down
+        title: "alert-service: Fora do Ar"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: "up{job=\"alert-service\"}"
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: B
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last, params: [] }
+        noDataState: Alerting
+        execErrState: Error
+        for: 30s
+        annotations:
+          summary: "alert-service está fora do ar"
+          description: "O serviço de alertas de telemetria parou de responder. Alertas de regras não serão disparados."
+        labels:
+          severity: critical
+          service: alert-service
+          source: infrastructure
+        isPaused: false
+
+      - uid: dashboard-service-down
+        title: "dashboard-service: Fora do Ar"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 60, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: "up{job=\"dashboard-service\"}"
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: B
+              expression: A
+              conditions:
+                - evaluator: { type: lt, params: [1] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last, params: [] }
+        noDataState: Alerting
+        execErrState: Error
+        for: 30s
+        annotations:
+          summary: "dashboard-service está fora do ar"
+          description: "O serviço de dashboard parou de responder."
+        labels:
+          severity: warning
+          service: dashboard-service
+          source: infrastructure
+        isPaused: false
+
+      # ── Memória alta (possível memory leak) ───────────────────────────────────
+
+      - uid: high-heap-memory
+        title: "Serviço: Heap Memory Alta (> 150MB)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 120, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: "go_memstats_heap_alloc_bytes"
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: B
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [157286400] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last, params: [] }
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Heap memory acima de 150MB em {{ $labels.job }}"
+          description: "O serviço {{ $labels.job }} está com heap alocado acima de 150MB. Possível memory leak."
+        labels:
+          severity: warning
+          source: infrastructure
+        isPaused: false
+
+      # ── Goroutine leak ────────────────────────────────────────────────────────
+
+      - uid: goroutine-leak
+        title: "Serviço: Goroutine Leak (> 500)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 120, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: "go_goroutines"
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: B
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [500] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last, params: [] }
+        noDataState: NoData
+        execErrState: Error
+        for: 2m
+        annotations:
+          summary: "Goroutine count alto em {{ $labels.job }}: {{ $values.A }}"
+          description: "O serviço {{ $labels.job }} tem mais de 500 goroutines ativas. Possível goroutine leak."
+        labels:
+          severity: warning
+          source: infrastructure
+        isPaused: false
+
+      # ── Redpanda: partições sub-replicadas ───────────────────────────────────
+
+      - uid: redpanda-under-replicated
+        title: "Redpanda: Partições Sub-Replicadas"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 120, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: "sum(vectorized_cluster_partition_under_replicated_replicas) by (topic)"
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: B
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last, params: [] }
+        noDataState: NoData
+        execErrState: Error
+        for: 1m
+        annotations:
+          summary: "Redpanda tem partições sub-replicadas no tópico {{ $labels.topic }}"
+          description: "Partições do Redpanda estão sem replicação suficiente. Risco de perda de dados."
+        labels:
+          severity: critical
+          service: redpanda
+          source: infrastructure
+        isPaused: false

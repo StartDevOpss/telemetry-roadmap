@@ -1,0 +1,107 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: k6-load-tests
+    folder: Load Tests
+    interval: 30s
+    rules:
+
+      - uid: k6-high-error-rate
+        title: "k6: Taxa de Erros Alta (> 1%)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 120, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: k6_errors_rate
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: B
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.01] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last, params: [] }
+        noDataState: NoData
+        execErrState: Error
+        for: 30s
+        annotations:
+          summary: "k6 detectou taxa de erros acima de 1%"
+          description: "O teste de carga está gerando erros. Verifique o serviço."
+        labels:
+          severity: warning
+          source: k6
+        isPaused: false
+
+      - uid: k6-high-latency
+        title: "k6: Latência p95 Alta (> 500ms)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 120, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: "k6_http_req_duration_p95"
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: B
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [500] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last, params: [] }
+        noDataState: NoData
+        execErrState: Error
+        for: 30s
+        annotations:
+          summary: "k6 detectou latência p95 acima de 500ms"
+          description: "A latência p95 está degradada. Possível sobrecarga no serviço."
+        labels:
+          severity: warning
+          source: k6
+        isPaused: false
+
+      - uid: k6-test-failed
+        title: "k6: Threshold Violado — Erros Críticos (> 5%)"
+        condition: B
+        data:
+          - refId: A
+            relativeTimeRange: { from: 120, to: 0 }
+            datasourceUid: prometheus
+            model:
+              expr: k6_errors_rate
+              instant: true
+              refId: A
+          - refId: B
+            datasourceUid: __expr__
+            model:
+              type: threshold
+              refId: B
+              expression: A
+              conditions:
+                - evaluator: { type: gt, params: [0.05] }
+                  operator: { type: and }
+                  query: { params: [A] }
+                  reducer: { type: last, params: [] }
+        noDataState: NoData
+        execErrState: Error
+        for: 15s
+        annotations:
+          summary: "k6: erros críticos acima de 5%"
+          description: "Sistema degradado durante o teste de carga. Ação imediata necessária."
+        labels:
+          severity: critical
+          source: k6
+        isPaused: false
