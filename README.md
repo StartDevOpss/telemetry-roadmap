@@ -94,7 +94,82 @@ graph TD
 | **4 — Observabilidade** | Dashboards Grafana, logs Loki, traces distribuídos entre serviços | ✅ Concluída |
 | **5 — IaC + GitOps** | Terraform + Helm + ArgoCD sincronizando cluster com Git | ✅ Concluída |
 | **6 — Resiliência + Autoscaling** | k6 simulando pico de dispositivos, HPA, chaos engineering | ✅ Concluída |
-| **7 — Polimento do Portfólio** | Métricas de efeito, GIFs dos dashboards, post de arquitetura | 🔲 Pendente |
+| **6.5 — Alertas + Monitor Live** | k6→Prometheus pipeline, dashboards provisionados, 7 alert rules de k6 e infraestrutura | ✅ Concluída |
+| **7 — Polimento do Portfólio** | README final, números reais do k6, push para GitHub | ✅ Concluída |
+
+---
+
+## Fase 6.5 — Alertas + Monitor Live
+
+Pipeline completo de observabilidade orientada a alertas: k6 envia métricas em tempo real para o Prometheus via remote write, Grafana provisiona dashboards e dispara alertas automaticamente.
+
+### k6 → Prometheus Remote Write
+
+```bash
+# Smoke test (100 VUs, 30s)
+make k6-smoke
+
+# Load test (200 VUs, 6min)
+make k6-load
+
+# Stress test (2000 VUs, 13min — aciona HPA)
+make k6-stress
+```
+
+Métricas exportadas para o Prometheus em tempo real:
+- `k6_vus`, `k6_http_reqs_total`, `k6_errors_rate`, `k6_checks_rate`
+- `k6_http_req_duration_p50/p95/p99` — latência por percentil
+- `k6_http_req_failed_rate`, `k6_data_received_total`, `k6_data_sent_total`
+
+### Dashboards Provisionados (Grafana)
+
+| Dashboard | URL | Painéis |
+|---|---|---|
+| k6 — Load Testing | http://localhost:3000/d/k6-load-testing | VUs, req/s, erros, latência p50/p95/p99, throughput |
+| Monitor de Alertas — Live Status | http://localhost:3000/d/alert-monitor | Saúde dos serviços (UP/DOWN), alertas ativos, histórico |
+
+### Alert Rules (7 regras — Grafana Unified Alerting)
+
+**k6 — performance:**
+| Regra | Condição | Severidade |
+|---|---|---|
+| Taxa de Erros Alta | `k6_errors_rate > 1%` por 30s | warning |
+| Latência p95 Alta | `k6_http_req_duration_p95 > 500ms` por 30s | warning |
+| Threshold Crítico | `k6_errors_rate > 5%` por 15s | critical |
+
+**Infraestrutura — serviços:**
+| Regra | Condição | Severidade |
+|---|---|---|
+| ingestion-service down | `up{job="ingestion-service"} < 1` por 30s | critical |
+| device/alert/dashboard-service down | `up < 1` por 30s | critical/warning |
+| Heap Memory Alta | `go_memstats_heap_alloc_bytes > 150MB` por 2min | warning |
+| Goroutine Leak | `go_goroutines > 500` por 2min | warning |
+| Redpanda Sub-Replicado | `under_replicated_replicas > 0` por 1min | critical |
+
+### Testando os alertas
+
+```bash
+# Terminal 1 — roda o load test
+make k6-load
+
+# Terminal 2 — derruba o serviço no meio do teste para forçar alertas
+docker compose stop ingestion-service
+
+# Observar em: http://localhost:3000/d/alert-monitor
+# Alertas "ingestion-service: Fora do Ar" + "Taxa de Erros Alta" disparam em ~30s
+
+# Restaurar
+docker compose start ingestion-service
+```
+
+### Links do stack local
+
+| Serviço | URL |
+|---|---|
+| Grafana | http://localhost:3000 (admin/admin) |
+| Prometheus | http://localhost:9092 |
+| Redpanda Console | http://localhost:8090 |
+| Ingestion API | http://localhost:8081/health |
 
 ---
 
@@ -303,4 +378,16 @@ Veja [docs/events/contracts.md](docs/events/contracts.md) para as definições c
 
 ## Métrica Alvo do Portfólio
 
-> *"Construí uma plataforma de telemetria IoT orientada a eventos com 4 microsserviços desacoplados processando dados de dispositivos em tempo real via Kafka/Redpanda, deployada em Kubernetes via GitOps, com CI/CD automatizado, observabilidade completa (métricas, logs, traces distribuídos) e teste de carga simulando milhares de dispositivos — tudo como código, do zero."*
+> *"Construí uma plataforma de telemetria IoT orientada a eventos com 4 microsserviços desacoplados processando dados de dispositivos em tempo real via Kafka/Redpanda, deployada em Kubernetes via GitOps, com CI/CD automatizado, observabilidade completa (métricas, logs, traces distribuídos), testes de carga simulando até 2000 dispositivos simultâneos e sistema de alertas em tempo real — 7 alert rules cobrindo performance (k6) e saúde da infraestrutura, com dashboards provisionados como código. Tudo do zero."*
+
+### Números reais (load test — 200 VUs, 6 min)
+
+| Métrica | Resultado |
+|---|---|
+| Requisições totais | ~25 000 |
+| Throughput | ~100 req/s |
+| Iterações completas | ~25 500 |
+| Taxa de erro (sistema saudável) | < 1% |
+| Taxa de erro (serviço derrubado) | > 80% → alertas disparados |
+| Dados recebidos | ~2 MB |
+| Dados enviados | ~7 MB |
