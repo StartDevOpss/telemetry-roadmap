@@ -115,6 +115,8 @@ kubectl get serviceaccounts -n telemetry
 
 ### Network Policies — Zero Trust (`infra/k8s/50-network-policies.yaml`)
 
+> **Requisito:** NetworkPolicy só funciona se o CNI suportar enforcement. O `kindnet` (padrão do kind) **não enforça** as políticas — elas existem mas não bloqueiam nada. O `setup-cluster.sh` instala o **Calico** automaticamente (`disableDefaultCNI: true` no kind-config).
+
 Regra base: **negar todo tráfego** ingress e egress no namespace. Exceções explícitas e mínimas por serviço:
 
 | Serviço | Ingress permitido | Egress permitido |
