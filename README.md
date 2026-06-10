@@ -96,6 +96,58 @@ graph TD
 | **6 — Resiliência + Autoscaling** | k6 simulando pico de dispositivos, HPA, chaos engineering | ✅ Concluída |
 | **6.5 — Alertas + Monitor Live** | k6→Prometheus pipeline, dashboards provisionados, 7 alert rules de k6 e infraestrutura | ✅ Concluída |
 | **7 — Polimento do Portfólio** | README final, números reais do k6, push para GitHub | ✅ Concluída |
+| **8 — Security Hardening** | RBAC, Network Policies, Pod Security Standards, secret scan + SAST no CI | ✅ Concluída |
+
+---
+
+## Fase 8 — Security Hardening
+
+Segurança em camadas: cada camada cobre um vetor de ataque diferente.
+
+### RBAC — ServiceAccount por serviço (`infra/k8s/40-rbac.yaml`)
+
+Cada serviço Go roda com sua própria `ServiceAccount` dedicada com `automountServiceAccountToken: false`. Os serviços não precisam falar com a API do Kubernetes — não há motivo para terem o token montado no container.
+
+```bash
+kubectl get serviceaccounts -n telemetry
+# ingestion-service, device-service, alert-service, dashboard-service
+```
+
+### Network Policies — Zero Trust (`infra/k8s/50-network-policies.yaml`)
+
+Regra base: **negar todo tráfego** ingress e egress no namespace. Exceções explícitas e mínimas por serviço:
+
+| Serviço | Ingress permitido | Egress permitido |
+|---|---|---|
+| ingestion-service | externo (NodePort) | Redpanda:9092, OTel:4317 |
+| device-service | Prometheus (scraping) | Redpanda:9092, Postgres:5432, Redis:6379, OTel:4317 |
+| alert-service | Prometheus (scraping) | Redpanda:9092, OTel:4317 |
+| dashboard-service | externo (WebSocket) | Redpanda:9092, OTel:4317 |
+
+### Pod Security Standards + Container Hardening
+
+Namespace com PSS `baseline` (enforcement) e `restricted` (warn/audit). Cada container com:
+
+```yaml
+securityContext:
+  allowPrivilegeEscalation: false   # sem sudo dentro do container
+  readOnlyRootFilesystem: true      # filesystem imutável em runtime
+  capabilities:
+    drop: ["ALL"]                   # zero Linux capabilities
+seccompProfile:
+  type: RuntimeDefault              # perfil seccomp padrão do runtime
+```
+
+### CI/CD — Secret Scan + SAST (`.github/workflows/ci.yml`)
+
+Dois jobs adicionais no pipeline:
+
+| Job | Ferramenta | O que detecta |
+|---|---|---|
+| `secret-scan` | **truffleHog** | Credenciais, API keys, tokens commitados no código |
+| SAST (no job `build`) | **gosec** | Vulnerabilidades no código Go: SQL injection, path traversal, crypto fraca, etc. |
+
+O pipeline agora bloqueia o push se qualquer secret verificado for encontrado no histórico.
 
 ---
 

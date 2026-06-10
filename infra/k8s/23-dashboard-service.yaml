@@ -15,13 +15,21 @@ spec:
       labels:
         app: dashboard-service
     spec:
+      serviceAccountName: dashboard-service
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: dashboard-service
           image: telemetry/dashboard-service:latest
           imagePullPolicy: Never
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: KAFKA_BROKERS
               valueFrom:

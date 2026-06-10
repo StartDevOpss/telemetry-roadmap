@@ -12,7 +12,26 @@ env:
 
 jobs:
   # ─────────────────────────────────────────────
-  # Job 1: build + lint para cada serviço
+  # Job 0: secret scanning — detecta credenciais
+  # ─────────────────────────────────────────────
+  secret-scan:
+    name: Secret Scan (truffleHog)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (histórico completo para scan incremental)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: truffleHog — detecta credenciais e secrets no código
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          extra_args: --only-verified
+
+  # ─────────────────────────────────────────────
+  # Job 1: build + lint + SAST para cada serviço
   # ─────────────────────────────────────────────
   build:
     name: Build & Lint (${{ matrix.service }})
@@ -55,13 +74,18 @@ jobs:
           GOFLAGS: -mod=mod
         run: go build ./...
 
+      - name: gosec — SAST para código Go (detecta vulnerabilidades no código)
+        uses: securego/gosec@master
+        with:
+          args: ./services/${{ matrix.service }}/...
+
   # ─────────────────────────────────────────────
   # Job 2: scan de vulnerabilidades com Trivy
   # ─────────────────────────────────────────────
   trivy-scan:
     name: Trivy Scan (${{ matrix.service }})
     runs-on: ubuntu-latest
-    needs: build
+    needs: [secret-scan, build]
     strategy:
       fail-fast: false
       matrix:

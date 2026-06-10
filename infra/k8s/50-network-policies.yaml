@@ -1,0 +1,139 @@
+# Fase 8 — Security Hardening
+# Network Policies: zero-trust dentro do namespace telemetry.
+# Regra base: negar todo tráfego ingress e egress.
+# Exceções explícitas por serviço (least privilege).
+
+# ── 1. Deny-all padrão (ingress + egress) ────────────────────────────────────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: telemetry
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+# ── 2. Permite DNS para todos os pods (necessário para resolução de nomes) ────
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: telemetry
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+---
+# ── 3. ingestion-service ─────────────────────────────────────────────────────
+# Recebe tráfego externo (NodePort 30081) + Prometheus scraping
+# Envia para Redpanda (Kafka) e OTel Collector
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ingestion-service
+  namespace: telemetry
+spec:
+  podSelector:
+    matchLabels:
+      app: ingestion-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - {}   # permite tráfego externo via NodePort
+  egress:
+    - ports:
+        - port: 9092   # Redpanda Kafka
+        - port: 4317   # OTel Collector gRPC
+        - port: 4318   # OTel Collector HTTP
+---
+# ── 4. device-service ────────────────────────────────────────────────────────
+# Consome Redpanda + persiste em Postgres + cache Redis + envia traces OTel
+# Não expõe HTTP para fora
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: device-service
+  namespace: telemetry
+spec:
+  podSelector:
+    matchLabels:
+      app: device-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - podSelector:
+        matchLabels:
+          app: prometheus   # permite scraping de métricas
+      ports:
+        - port: 9090
+  egress:
+    - ports:
+        - port: 9092   # Redpanda Kafka
+        - port: 5432   # PostgreSQL
+        - port: 6379   # Redis
+        - port: 4317   # OTel Collector gRPC
+        - port: 4318   # OTel Collector HTTP
+---
+# ── 5. alert-service ─────────────────────────────────────────────────────────
+# Consome Redpanda + envia traces OTel
+# Não expõe HTTP para fora
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: alert-service
+  namespace: telemetry
+spec:
+  podSelector:
+    matchLabels:
+      app: alert-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - podSelector:
+        matchLabels:
+          app: prometheus
+      ports:
+        - port: 9090
+  egress:
+    - ports:
+        - port: 9092   # Redpanda Kafka
+        - port: 4317   # OTel Collector gRPC
+        - port: 4318   # OTel Collector HTTP
+---
+# ── 6. dashboard-service ─────────────────────────────────────────────────────
+# Consome Redpanda + envia traces OTel
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: dashboard-service
+  namespace: telemetry
+spec:
+  podSelector:
+    matchLabels:
+      app: dashboard-service
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - {}   # permite tráfego externo (WebSocket/SSE)
+    - podSelector:
+        matchLabels:
+          app: prometheus
+      ports:
+        - port: 9090
+  egress:
+    - ports:
+        - port: 9092   # Redpanda Kafka
+        - port: 4317   # OTel Collector gRPC
+        - port: 4318   # OTel Collector HTTP

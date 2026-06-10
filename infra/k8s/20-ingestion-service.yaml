@@ -15,13 +15,21 @@ spec:
       labels:
         app: ingestion-service
     spec:
+      serviceAccountName: ingestion-service
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: ingestion-service
           image: telemetry/ingestion-service:latest
           imagePullPolicy: Never
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: KAFKA_BROKERS
               valueFrom:

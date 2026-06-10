@@ -4,3 +4,12 @@ metadata:
   name: telemetry
   labels:
     app.kubernetes.io/part-of: telemetry-platform
+    # Fase 8 — Pod Security Standards
+    # baseline: bloqueia containers privilegiados e hostPath perigosos
+    # warn/audit restricted: avisa sobre configs que não atendem nível máximo
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/enforce-version: latest
+    pod-security.kubernetes.io/warn: restricted
+    pod-security.kubernetes.io/warn-version: latest
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/audit-version: latest

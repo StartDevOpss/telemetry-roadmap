@@ -15,13 +15,21 @@ spec:
       labels:
         app: device-service
     spec:
+      serviceAccountName: device-service
       securityContext:
         runAsNonRoot: true
         runAsUser: 65532
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: device-service
           image: telemetry/device-service:latest
           imagePullPolicy: Never
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
           env:
             - name: KAFKA_BROKERS
               valueFrom:

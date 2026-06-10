@@ -1,0 +1,44 @@
+# Fase 8 — Security Hardening
+# RBAC: ServiceAccount dedicada por serviço + sem automount do token k8s
+# Os serviços Go não precisam falar com a API do Kubernetes,
+# então desativamos o token automático (principle of least privilege).
+
+# ── ingestion-service ────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ingestion-service
+  namespace: telemetry
+  labels:
+    app.kubernetes.io/part-of: telemetry-platform
+automountServiceAccountToken: false
+---
+# ── device-service ───────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: device-service
+  namespace: telemetry
+  labels:
+    app.kubernetes.io/part-of: telemetry-platform
+automountServiceAccountToken: false
+---
+# ── alert-service ────────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: alert-service
+  namespace: telemetry
+  labels:
+    app.kubernetes.io/part-of: telemetry-platform
+automountServiceAccountToken: false
+---
+# ── dashboard-service ────────────────────────────────────────────────────────
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: dashboard-service
+  namespace: telemetry
+  labels:
+    app.kubernetes.io/part-of: telemetry-platform
+automountServiceAccountToken: false
