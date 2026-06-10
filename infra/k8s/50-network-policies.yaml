@@ -71,9 +71,10 @@ spec:
     - Ingress
     - Egress
   ingress:
-    - podSelector:
-        matchLabels:
-          app: prometheus   # permite scraping de métricas
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
       ports:
         - port: 9090
   egress:
@@ -100,9 +101,10 @@ spec:
     - Ingress
     - Egress
   ingress:
-    - podSelector:
-        matchLabels:
-          app: prometheus
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
       ports:
         - port: 9090
   egress:
@@ -127,9 +129,10 @@ spec:
     - Egress
   ingress:
     - {}   # permite tráfego externo (WebSocket/SSE)
-    - podSelector:
-        matchLabels:
-          app: prometheus
+    - from:
+        - podSelector:
+            matchLabels:
+              app: prometheus
       ports:
         - port: 9090
   egress:
