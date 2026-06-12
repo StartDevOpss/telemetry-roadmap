@@ -10,6 +10,8 @@
 
 Todos os serviços se comunicam **exclusivamente por eventos** — sem chamadas HTTP diretas entre si. Cada leitura de dispositivo percorre o barramento e aciona serviços independentes de forma assíncrona.
 
+![Diagrama da arquitetura](docs/images/arquitetura.png)
+
 ```mermaid
 graph TD
     Dispositivos["Dispositivos / k6 (HTTP)"]
@@ -100,6 +102,16 @@ graph TD
 
 ---
 
+## Segurança em Ação
+
+![RBAC — ServiceAccount negando ação fora do escopo](docs/images/rbac-deny.png)
+*RBAC: o ServiceAccount do serviço recebe "no" ao tentar deletar pods — admin recebe "yes".*
+
+![Network Policy bloqueando tráfego não autorizado](docs/images/networkpolicy-block.png)
+*Zero trust: conexão permitida responde na hora (open); conexão bloqueada expira em timeout.*
+
+---
+
 ## Fase 8 — Security Hardening
 
 Segurança em camadas: cada camada cobre um vetor de ataque diferente.
@@ -150,6 +162,19 @@ Dois jobs adicionais no pipeline:
 | SAST (no job `build`) | **gosec** | Vulnerabilidades no código Go: SQL injection, path traversal, crypto fraca, etc. |
 
 O pipeline agora bloqueia o push se qualquer secret verificado for encontrado no histórico.
+
+---
+
+## Observabilidade em Ação
+
+![Grafana — dashboards de métricas e alertas](docs/images/grafana-observabilidade.png)
+*Dashboards no Grafana: taxa de eventos, latência p50/p95/p99 e saúde dos serviços em tempo real.*
+
+![Teste de carga com k6](docs/images/k6-load-test.png)
+*k6 simulando 200 dispositivos simultâneos: request rate, latência e throughput no pico de carga.*
+
+![Alertas disparando automaticamente](docs/images/alertas-disparando.png)
+*Sob saturação, a observabilidade detecta e dispara o alerta automaticamente — sem ninguém olhando a tela.*
 
 ---
 
