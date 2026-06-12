@@ -10,8 +10,6 @@
 
 Todos os serviços se comunicam **exclusivamente por eventos** — sem chamadas HTTP diretas entre si. Cada leitura de dispositivo percorre o barramento e aciona serviços independentes de forma assíncrona.
 
-![Diagrama da arquitetura](docs/images/arquitetura.png)
-
 ```mermaid
 graph TD
     Dispositivos["Dispositivos / k6 (HTTP)"]
